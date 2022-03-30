@@ -4,6 +4,7 @@ import numpy as np
 from scipy import ndimage
 import elasticdeform
 from stardist import edt_prob, star_dist
+from splinedist.splinedist.geometry.geom2d import spline_dist
 import numpy as np
 
 class Dataset(torch.utils.data.Dataset):
@@ -14,6 +15,7 @@ class Dataset(torch.utils.data.Dataset):
         labels_group_name,
         min_max_value=None,
         num_rays=32,
+        max_contours=400,
         use_only=None,
         use_transforms=False,
         elastic_deform_sigma=10,
@@ -41,15 +43,14 @@ class Dataset(torch.utils.data.Dataset):
         self.elastic_deform_points = elastic_deform_points
         self.zoom_factor = zoom_factor
         self.num_rays = num_rays
+        self.max_contours = max_contours
         self.crop_size = crop_size
         self.use_transforms = use_transforms
 
         # load data
         with h5py.File(path, 'r') as f:
             self.images = f[images_dataset_name][:use_only].astype("float32")
-            self.labels = []
-            for i in range(len(self.images)):
-                self.labels.append(f[labels_group_name][str(i)][()].astype("float32"))
+            self.labels = f[labels_group_name][:use_only].astype("float32")
         
         # determine normalization
         self.min_max_value = min_max_value
@@ -112,7 +113,8 @@ class Dataset(torch.utils.data.Dataset):
         stardistances = np.zeros((self.num_rays, labels.shape[1], labels.shape[2]), dtype="float32")
         
         for i in range(labels.shape[0]):
-            stardistances += star_dist(labels[i], self.num_rays).transpose(2, 0, 1)
+            sd = spline_dist(labels[i], self.num_rays, self.max_contours).transpose(2, 0, 1)
+            return sd
 
         stardistances[:, labels.sum(axis=0) > 1.5] = 0
 
@@ -147,7 +149,7 @@ class Dataset(torch.utils.data.Dataset):
         plot_labels = self.labels[:num_images]
 
         overlap = np.zeros((num_images, 1, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
-        stardistances = np.zeros((num_images, self.num_rays, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
+        stardistances = np.zeros((num_images, self.max_contours * 2, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
         objectprobs = np.zeros((num_images, 1, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
         
         # iterate over images and compute features and normalized images
