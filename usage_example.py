@@ -58,8 +58,8 @@ def usage_example():
     #############################################################################
 
     # gpu selection
-    gpu_id = str(input("Select gpu: "))
-    device = torch.device("cuda:" + gpu_id)
+    gpu_id = str(input("Enter gpu # or leave blank for cpu: "))
+    device = torch.device(("cuda:" + gpu_id) if len(gpu_id) > 0 else "cpu")
 
     # automatic experiment name and path determination
     exp_name = "run1"
