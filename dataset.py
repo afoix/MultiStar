@@ -14,8 +14,8 @@ class Dataset(torch.utils.data.Dataset):
             images_dataset_name,
             labels_group_name,
             min_max_value=None,
-            num_parameters=32,
-            max_contours=400,
+            num_parameters=20,
+            contoursize_max=400,
             use_only=None,
             use_transforms=False,
             elastic_deform_sigma=10,
@@ -30,7 +30,8 @@ class Dataset(torch.utils.data.Dataset):
         images_dataset_name -- hdf5 dataset name of images
         labels_group_name -- hdf5 group name of image labels
         min_max_value -- tuple with minimum and maximum values for scaling, derived from data if None
-        num_parameters -- number of polygon distances, default 32
+        num_parameters -- number of parameters (2 per control point), default 20 (10 control points)
+        contoursize_max -- Maximum contour size of each instance
         use_only -- number of images to use from the dataset, useful for faster debugging, default all images
         use_transforms -- boolean, decides whether transforms and crops are applied or not
         elastic_deform_sigma -- higher value leads to stronger deformation
@@ -43,7 +44,7 @@ class Dataset(torch.utils.data.Dataset):
         self.elastic_deform_points = elastic_deform_points
         self.zoom_factor = zoom_factor
         self.num_parameters = num_parameters
-        self.max_contours = max_contours
+        self.contoursize_max = contoursize_max
         self.crop_size = crop_size
         self.use_transforms = use_transforms
 
@@ -113,7 +114,7 @@ class Dataset(torch.utils.data.Dataset):
         stardistances = np.zeros((self.num_parameters, labels.shape[1], labels.shape[2]), dtype="float32")
 
         for i in range(labels.shape[0]):
-            sd = spline_dist(labels[i], self.num_parameters, self.max_contours).transpose(2, 0, 1)
+            sd = spline_dist(labels[i], self.num_parameters, self.contoursize_max).transpose(2, 0, 1)
             return sd
 
         stardistances[:, labels.sum(axis=0) > 1.5] = 0
@@ -149,7 +150,7 @@ class Dataset(torch.utils.data.Dataset):
         plot_labels = self.labels[:num_images]
 
         overlap = np.zeros((num_images, 1, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
-        stardistances = np.zeros((num_images, self.max_contours * 2, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
+        stardistances = np.zeros((num_images, self.contoursize_max * 2, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
         objectprobs = np.zeros((num_images, 1, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
         
         # iterate over images and compute features and normalized images
