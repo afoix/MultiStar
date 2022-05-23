@@ -23,8 +23,8 @@ def usage_example():
     testset_dataset_name = "testset"
     testset_labels_group_name = "testset_labels"
 
-    # number of star distance directions
-    num_rays = 32
+    # number of spline control points
+    num_control_points = 10
 
     # elastic deformation (data augmentation)
     elastic_deform_sigma = 7
@@ -70,14 +70,16 @@ def usage_example():
     trainset = dataset.Dataset(
         path=dataset_path,
         images_dataset_name=trainset_dataset_name,
-        labels_group_name=trainset_labels_group_name
-        )
+        labels_group_name=trainset_labels_group_name,
+        num_parameters=num_control_points*2
+    )
 
     testset = dataset.Dataset(
         path=dataset_path,
         images_dataset_name=testset_dataset_name,
         labels_group_name=testset_labels_group_name,
-        )
+        num_parameters=num_control_points*2
+    )
 
     # these images are used to plot predictions in tensorboard
     plot_trainset = trainset.get_plot_images(2)

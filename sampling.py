@@ -7,7 +7,7 @@ def get_polygon_coordinates(x, y, stardist):
     Parameters:
     x -- x coordinate of polygon center
     y -- y coordinate of polygon center
-    stardist -- array of shape (num_rays, H, W) with the polygon distances
+    stardist -- array of shape (num_parameters, H, W) with the polygon distances
 
     Returns: list of coordinate tuples.
     """
@@ -104,7 +104,7 @@ def generate_polygon_masks(polygon_pixel_coordinates, stardist):
     
     Parameters:
     polygon_pixel_coordinates -- array of shape (num_proposals, 2) with x/y coordinates of polygon positions
-    stardist -- array of shape (num_rays, height, width)
+    stardist -- array of shape (num_parameters, height, width)
 
     Returns: binary array with polygon mask
     """
@@ -132,7 +132,7 @@ def nms(overlap, stardist, objprob, num_proposals, iou_thres, min_objprob):
     
     Parameters:
     overlap -- array of shape (1, H, W) with the predicted overlap (values between 0 and 1)
-    stardist -- array of shape (num_rays, H, W) with the ray lengths
+    stardist -- array of shape (num_parameters, H, W) with the ray lengths
     objprob -- array of shape (1, H, W) with the object probabilities (values between 0 and 1)
     num_proposals -- number of proposals to generate
     iou_thres -- maximum allowed intersection over union for polygons to coexist (not relevant for overlap regions)
@@ -178,10 +178,10 @@ def plot_one_polygon(x, y, image, stardist):
 
     image_height = stardist.shape[1]
     image_width = stardist.shape[2]
-    num_rays = stardist.shape[0]
+    num_parameters = stardist.shape[0]
 
     # compute the ray angles and their sin/cos values
-    angles, sin_angles, cos_angles = get_sin_cos_angles(num_rays)
+    angles, sin_angles, cos_angles = get_sin_cos_angles(num_parameters)
 
     # get coordinates of polygon corners
     coordinates = get_polygon_coordinates(x, y, stardist, angles, sin_angles, cos_angles)
