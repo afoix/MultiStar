@@ -1,0 +1,3 @@
+[submodule "splinedist"]
+	path = splinedist
+	url = git@github.com:afoix/splinedist.git

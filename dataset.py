@@ -4,23 +4,25 @@ import numpy as np
 from scipy import ndimage
 import elasticdeform
 from stardist import edt_prob, star_dist
+from splinedist.splinedist.geometry.geom2d import spline_dist
 import numpy as np
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(
-        self,
-        path,
-        images_dataset_name,
-        labels_group_name,
-        min_max_value=None,
-        num_rays=32,
-        use_only=None,
-        use_transforms=False,
-        elastic_deform_sigma=10,
-        elastic_deform_points=3,
-        zoom_factor=1.1,
-        crop_size=None
-        ):
+            self,
+            path,
+            images_dataset_name,
+            labels_group_name,
+            min_max_value=None,
+            num_parameters=20,
+            contoursize_max=400,
+            use_only=None,
+            use_transforms=False,
+            elastic_deform_sigma=10,
+            elastic_deform_points=3,
+            zoom_factor=1.1,
+            crop_size=None
+    ):
         """Dataset for single data source.
         
         Parameters:
@@ -28,7 +30,8 @@ class Dataset(torch.utils.data.Dataset):
         images_dataset_name -- hdf5 dataset name of images
         labels_group_name -- hdf5 group name of image labels
         min_max_value -- tuple with minimum and maximum values for scaling, derived from data if None
-        num_rays -- number of polygon distances, default 32
+        num_parameters -- number of parameters (2 per control point), default 20 (10 control points)
+        contoursize_max -- Maximum contour size of each instance
         use_only -- number of images to use from the dataset, useful for faster debugging, default all images
         use_transforms -- boolean, decides whether transforms and crops are applied or not
         elastic_deform_sigma -- higher value leads to stronger deformation
@@ -40,16 +43,15 @@ class Dataset(torch.utils.data.Dataset):
         self.elastic_deform_sigma = elastic_deform_sigma
         self.elastic_deform_points = elastic_deform_points
         self.zoom_factor = zoom_factor
-        self.num_rays = num_rays
+        self.num_parameters = num_parameters
+        self.contoursize_max = contoursize_max
         self.crop_size = crop_size
         self.use_transforms = use_transforms
 
         # load data
         with h5py.File(path, 'r') as f:
             self.images = f[images_dataset_name][:use_only].astype("float32")
-            self.labels = []
-            for i in range(len(self.images)):
-                self.labels.append(f[labels_group_name][str(i)][()].astype("float32"))
+            self.labels = f[labels_group_name][:use_only].astype("float32")
         
         # determine normalization
         self.min_max_value = min_max_value
@@ -109,10 +111,11 @@ class Dataset(torch.utils.data.Dataset):
         return np.expand_dims(overlap, 0)
 
     def get_stardistances(self, labels):
-        stardistances = np.zeros((self.num_rays, labels.shape[1], labels.shape[2]), dtype="float32")
-        
+        stardistances = np.zeros((self.num_parameters, labels.shape[1], labels.shape[2]), dtype="float32")
+
         for i in range(labels.shape[0]):
-            stardistances += star_dist(labels[i], self.num_rays).transpose(2, 0, 1)
+            sd = spline_dist(labels[i], self.num_parameters, self.contoursize_max).transpose(2, 0, 1)
+            return sd
 
         stardistances[:, labels.sum(axis=0) > 1.5] = 0
 
@@ -147,7 +150,7 @@ class Dataset(torch.utils.data.Dataset):
         plot_labels = self.labels[:num_images]
 
         overlap = np.zeros((num_images, 1, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
-        stardistances = np.zeros((num_images, self.num_rays, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
+        stardistances = np.zeros((num_images, self.contoursize_max * 2, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
         objectprobs = np.zeros((num_images, 1, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
         
         # iterate over images and compute features and normalized images
@@ -188,25 +191,25 @@ class Dataset(torch.utils.data.Dataset):
 
 class DatasetPlus(torch.utils.data.Dataset):
     def __init__(
-        self,
-        path1_2_3,
-        path4,
-        images1_dataset_name="trainset",
-        images2_dataset_name="testset90",
-        images3_dataset_name="testset810",
-        images4_dataset_name="trainset",
-        labels1_group_name="trainset_labels",
-        labels2_group_name="testset90_labels",
-        labels3_group_name="testset810_labels",
-        labels4_group_name="trainset_labels",
-        min_max_value=None,
-        num_rays=32,
-        use_transforms=False,
-        elastic_deform_sigma=10,
-        elastic_deform_points=3,
-        zoom_factor=1.1,
-        crop_size=None
-        ):
+            self,
+            path1_2_3,
+            path4,
+            images1_dataset_name="trainset",
+            images2_dataset_name="testset90",
+            images3_dataset_name="testset810",
+            images4_dataset_name="trainset",
+            labels1_group_name="trainset_labels",
+            labels2_group_name="testset90_labels",
+            labels3_group_name="testset810_labels",
+            labels4_group_name="trainset_labels",
+            min_max_value=None,
+            num_parameters=32,
+            use_transforms=False,
+            elastic_deform_sigma=10,
+            elastic_deform_points=3,
+            zoom_factor=1.1,
+            crop_size=None
+    ):
         """Special class for dataset made of ISBI14 Train, ISBI14 Test90, ISBI14 Test810 and ISBI15 Train
         
         Parameters:
@@ -221,7 +224,7 @@ class DatasetPlus(torch.utils.data.Dataset):
         labels3_group_name -- group name of ISBI14 testset810 labels
         labels4_group_name -- group name of ISBI15 trainset labels
         min_max_value -- tuple with minimum and maximum values for scaling, derived from data if None
-        num_rays -- number of polygon distances, default 32
+        num_parameters -- number of polygon distances, default 32
         use_only -- number of images to use from the dataset, useful for faster debugging, default all images
         use_transforms -- boolean, decides whether transforms and crops are applied or not
         elastic_deform_sigma -- higher value leads to stronger deformation
@@ -233,7 +236,7 @@ class DatasetPlus(torch.utils.data.Dataset):
         self.elastic_deform_sigma = elastic_deform_sigma
         self.elastic_deform_points = elastic_deform_points
         self.zoom_factor = zoom_factor
-        self.num_rays = num_rays
+        self.num_parameters = num_parameters
         self.crop_size = crop_size
         self.use_transforms = use_transforms
 
@@ -349,10 +352,10 @@ class DatasetPlus(torch.utils.data.Dataset):
         return np.expand_dims(overlap, 0)
 
     def get_stardistances(self, labels):
-        stardistances = np.zeros((self.num_rays, labels.shape[1], labels.shape[2]), dtype="float32")
-        
+        stardistances = np.zeros((self.num_parameters, labels.shape[1], labels.shape[2]), dtype="float32")
+
         for i in range(labels.shape[0]):
-            stardistances += star_dist(labels[i], self.num_rays).transpose(2, 0, 1)
+            stardistances += star_dist(labels[i], self.num_parameters).transpose(2, 0, 1)
 
         stardistances[:, labels.sum(axis=0) > 1.5] = -1
 
@@ -387,7 +390,8 @@ class DatasetPlus(torch.utils.data.Dataset):
         plot_labels = self.labels[:num_images]
 
         overlap = np.zeros((num_images, 1, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
-        stardistances = np.zeros((num_images, self.num_rays, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
+        stardistances = np.zeros((num_images, self.num_parameters, plot_images.shape[2], plot_images.shape[3]),
+                                 dtype="float32")
         objectprobs = np.zeros((num_images, 1, plot_images.shape[2], plot_images.shape[3]), dtype="float32")
         
         # iterate over images and compute features and normalized images

@@ -119,7 +119,8 @@ train_labels_list = os.listdir(trainset_GT_filepath)
 
 trainset_images = np.empty((len(train_images_list), img_size[0], img_size[1]))
 trainset_images  = np.expand_dims(trainset_images, 1)
-trainset_labels = []
+trainset_labels = np.empty((len(train_images_list), img_size[0], img_size[1]))
+trainset_labels  = np.expand_dims(trainset_labels, 1)
 
 # iterate over all images
 for i in trange(len(train_images_list)):
@@ -127,17 +128,21 @@ for i in trange(len(train_images_list)):
     integer_labels_mask = plt.imread(trainset_GT_filepath + train_labels_list[i])
 
     # convert mask with integer labels to mask with one channel per instance
-    unique = list(np.unique(integer_labels_mask))
-    unique.remove(0)
-    original_labels = np.empty((len(unique), original_image.shape[0], original_image.shape[1]), dtype='int32')
-    for j, k in enumerate(unique):
-        original_labels[j] = (integer_labels_mask == k)
+    #unique = list(np.unique(integer_labels_mask))
+    #unique.remove(0)
+    #original_labels = np.empty((len(unique), original_image.shape[0], original_image.shape[1]), dtype='int32')
+    #for j, k in enumerate(unique):
+    #    original_labels[j] = (integer_labels_mask == k)
         
     # create synthetic image/mask from original image/mask
-    shifted_image, shifted_labels = random_shift_cells(original_image, original_labels, img_size, 0.15)
+    #shifted_image, shifted_labels = random_shift_cells(original_image, original_labels, img_size, 0.15)
+
+    # Crop the images
+    shifted_image = original_image[:img_size[0], :img_size[1]]
+    shifted_label = integer_labels_mask[:img_size[0], :img_size[1]]
 
     trainset_images[i, 0] = shifted_image
-    trainset_labels.append(shifted_labels)
+    trainset_labels[i, 0] = shifted_label
 
 ############
 # testset #
@@ -147,7 +152,8 @@ test_labels_list = os.listdir(testset_GT_filepath)
 
 testset_images = np.empty((len(test_images_list), img_size[0], img_size[1]))
 testset_images = np.expand_dims(testset_images, 1)
-testset_labels = []
+testset_labels = np.empty((len(test_images_list), img_size[0], img_size[1]))
+testset_labels = np.expand_dims(testset_labels, 1)
 
 # iterate over all images
 for i in trange(len(test_images_list)):
@@ -155,27 +161,27 @@ for i in trange(len(test_images_list)):
     integer_labels_mask = plt.imread(testset_GT_filepath + test_labels_list[i])
 
     # convert mask with integer labels to mask with one channel per instance
-    unique = list(np.unique(integer_labels_mask))
-    unique.remove(0)
-    original_labels = np.empty((len(unique), original_image.shape[0], original_image.shape[1]), dtype='int32')
-    for j, k in enumerate(unique):
-        original_labels[j] = (integer_labels_mask == k)
+    #unique = list(np.unique(integer_labels_mask))
+    #unique.remove(0)
+    #original_labels = np.empty((len(unique), original_image.shape[0], original_image.shape[1]), dtype='int32')
+    #for j, k in enumerate(unique):
+    #    original_labels[j] = (integer_labels_mask == k)
     
     # create synthetic image/mask from original image/mask
-    shifted_image, shifted_labels = random_shift_cells(original_image, original_labels, img_size, 0.15)
+    #shifted_image, shifted_labels = random_shift_cells(original_image, original_labels, img_size, 0.15)
+
+    # Crop the images
+    shifted_image = original_image[:img_size[0], :img_size[1]]
+    shifted_label = integer_labels_mask[:img_size[0], :img_size[1]]
 
     testset_images[i, 0] = shifted_image
-    testset_labels.append(shifted_labels)
+    testset_labels[i, 0] = shifted_label
 
 # save created images/masks
 f = h5py.File(export_filepath, 'w')
-trainset_labels_group = f.create_group("trainset_labels")
-testset_labels_group = f.create_group("testset_labels")
 
 f.create_dataset("trainset", data=trainset_images, compression=compression)
-for i in range(len(trainset_labels)):
-    trainset_labels_group.create_dataset(str(i), data=trainset_labels[i], compression=compression)
+f.create_dataset("trainset_labels", data=trainset_labels, compression=compression)
 
 f.create_dataset("testset", data=testset_images, compression=compression)
-for i in range(len(testset_labels)):
-    testset_labels_group.create_dataset(str(i), data=testset_labels[i], compression=compression)
+f.create_dataset("testset_labels", data=testset_labels, compression=compression)

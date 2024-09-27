@@ -243,8 +243,8 @@ class Trainer(object):
 
         Parameters:
         images -- array of shape (num_images, 1, height, width) with images
-        pred_stardist -- array of shape (num_images, num_rays, height, width) with predicted star distances
-        stardist -- array of shape (num_images, num_rays, height, width) with true star distances
+        pred_stardist -- array of shape (num_images, num_parameters, height, width) with predicted star distances
+        stardist -- array of shape (num_images, num_parameters, height, width) with true star distances
         objprobs -- array of shape (num_images, 1, height, width) with true object probabilities, to mask the image
         epoch -- training epoch
         plot_name -- string, training set / test set
